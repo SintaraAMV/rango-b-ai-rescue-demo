@@ -194,6 +194,7 @@
           method: 'PATCH',
           body: { status: target },
         });
+        state.order = updated;
         toast('Estado actualizado');
         showStatus(updated.status);
       } catch (err) {
@@ -220,10 +221,9 @@
   async function renderOrderForm(orderId) {
     const customers = await api('/api/customers');
     const order = orderId
-      ? state.order && state.order.id === orderId
-        ? state.order
-        : await api(`/api/orders/${orderId}`)
+      ? await api(`/api/orders/${orderId}`)
       : null;
+    if (order) state.order = order;
     const lines = order ? order.items.map((it) => ({ ...it })) : [blankLine()];
     view.innerHTML = `
       <div class="page-head"><h1>${order ? `Editar pedido ${esc(order.number)}` : 'Nuevo pedido'}</h1></div>
