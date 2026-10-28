@@ -121,14 +121,12 @@ function createOrder(body) {
 function readOrderInput(body, current) {
   const items = cleanItems(body.items);
   const summary = summarize(items);
-  const status = body.status || current.status;
-  if (!STATUSES.includes(status)) throw new HttpError(400, 'Estado no válido');
   return {
     customerId: Number(body.customer_id === undefined ? current.customer_id : body.customer_id),
-    status,
+    status: current.status,
     notes: String(body.notes === undefined ? current.notes : body.notes).trim(),
-    total: body.total === undefined ? summary.total : Number(body.total),
-    itemCount: body.item_count === undefined ? summary.item_count : Number(body.item_count),
+    total: summary.total,
+    itemCount: summary.item_count,
     items,
   };
 }
