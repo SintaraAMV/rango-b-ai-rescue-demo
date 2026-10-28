@@ -145,9 +145,9 @@ function updateOrder(id, body) {
   db.transaction(() => {
     db.run(
       `UPDATE orders
-          SET customer_id = ?, status = ?, notes = ?, total = ?, item_count = ?, updated_at = ?
+          SET customer_id = ?, notes = ?, total = ?, item_count = ?, updated_at = ?
         WHERE id = ?`,
-      [input.customerId, input.status, input.notes, input.total, input.itemCount, new Date().toISOString(), id]
+      [input.customerId, input.notes, input.total, input.itemCount, new Date().toISOString(), id]
     );
     db.run('DELETE FROM order_items WHERE order_id = ?', [id]);
     input.items.forEach((it) => {
@@ -160,11 +160,31 @@ function updateOrder(id, body) {
   return getOrder(id);
 }
 
-function checkOrderSummary(order) {
-  const live = summarize(loadItems(order.id));
-  if (live.item_count !== order.item_count || Math.abs(live.total - order.total) > 0.005) {
-    throw new HttpError(409, 'No se pudo actualizar el estado del pedido');
-  }
+function reconcileSummaries() {
+  const rows = db.all('SELECT id, total, item_count FROM orders ORDER BY id');
+  const repairs = rows
+    .map((order) => {
+      const live = summarize(loadItems(order.id));
+      const stale =
+        live.item_count !== order.item_count ||
+        Math.abs(live.total - Number(order.total)) > 0.005;
+      return stale ? { id: order.id, ...live } : null;
+    })
+    .filter(Boolean);
+
+  if (!repairs.length) return 0;
+
+  db.transaction(() => {
+    repairs.forEach((repair) => {
+      db.run('UPDATE orders SET total = ?, item_count = ? WHERE id = ?', [
+        repair.total,
+        repair.item_count,
+        repair.id,
+      ]);
+    });
+  });
+
+  return repairs.length;
 }
 
 function advanceStatus(id, target) {
@@ -178,8 +198,6 @@ function advanceStatus(id, target) {
       ? current >= 0 && current < STATUS_FLOW.indexOf('shipped')
       : current >= 0 && STATUS_FLOW.indexOf(target) === current + 1;
   if (!allowed) throw new HttpError(409, 'Transición de estado no permitida');
-  if (target !== 'cancelled') checkOrderSummary(order);
-
   db.transaction(() => {
     db.run('UPDATE orders SET status = ?, updated_at = ? WHERE id = ?', [
       target,
@@ -199,4 +217,5 @@ module.exports = {
   createOrder,
   updateOrder,
   advanceStatus,
+  reconcileSummaries,
 };
