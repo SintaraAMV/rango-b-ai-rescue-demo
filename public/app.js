@@ -302,7 +302,6 @@
     view.querySelector('#order-form').addEventListener('submit', async (ev) => {
       ev.preventDefault();
       const payload = {
-        ...(order || {}),
         customer_id: Number(view.querySelector('#customer').value),
         notes: view.querySelector('#notes').value,
         items: lines.map((l) => ({
