@@ -3,11 +3,13 @@
 const path = require('path');
 const express = require('express');
 const db = require('./db');
+const orders = require('./orders');
 const ordersRouter = require('./routes/orders');
 const customersRouter = require('./routes/customers');
 
 async function createApp() {
   await db.open();
+  orders.reconcileSummaries();
 
   const app = express();
   app.use(express.json({ limit: '1mb' }));
